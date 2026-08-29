@@ -7,6 +7,36 @@ import {
 } from "./gameLogic.js";
 import { CrestSVG, InteractiveField, PlayerPopup } from "./components.jsx";
 
+function Banner() {
+  return (
+    <svg width="100%" viewBox="0 0 380 200" xmlns="http://www.w3.org/2000/svg" style={{ borderRadius: 14, marginBottom: 16, display: "block" }}>
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#0a1628"/>
+          <stop offset="1" stopColor="#14243f"/>
+        </linearGradient>
+        <clipPath id="rounded"><rect x="0" y="0" width="380" height="200" rx="14"/></clipPath>
+      </defs>
+      <g clipPath="url(#rounded)">
+        <rect x="0" y="0" width="380" height="200" fill="url(#sky)"/>
+        <ellipse cx="70" cy="30" rx="55" ry="18" fill="#FFD70022"/>
+        <ellipse cx="310" cy="30" rx="55" ry="18" fill="#FFD70022"/>
+        <line x1="70" y1="12" x2="70" y2="48" stroke="#FFD70055" strokeWidth="2"/>
+        <line x1="310" y1="12" x2="310" y2="48" stroke="#FFD70055" strokeWidth="2"/>
+        <circle cx="70" cy="12" r="4" fill="#FFD700"/>
+        <circle cx="310" cy="12" r="4" fill="#FFD700"/>
+        <ellipse cx="190" cy="230" rx="230" ry="90" fill="#1a7a2e"/>
+        <ellipse cx="190" cy="230" rx="230" ry="90" fill="none" stroke="#ffffff33" strokeWidth="1.5"/>
+        <ellipse cx="190" cy="185" rx="42" ry="16" fill="none" stroke="#ffffff33" strokeWidth="1.5"/>
+        <line x1="190" y1="150" x2="190" y2="200" stroke="#ffffff22" strokeWidth="1.5"/>
+        <circle cx="190" cy="118" r="3" fill="#ffffff"/>
+        <text x="190" y="95" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="30" fontWeight="900" fill="#FFD700" letterSpacing="1">DREAM TEAM</text>
+        <text x="190" y="125" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="26" fontWeight="900" fill="#ffffff" letterSpacing="6">BATTLE</text>
+      </g>
+    </svg>
+  );
+}
+
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 // estilos base
@@ -30,6 +60,7 @@ export default function App() {
   // dados de fluxo de criacao
   const [profiles, setProfiles] = useState([]);
   const [matches, setMatches] = useState([]);
+  const [rankingProfiles, setRankingProfiles] = useState([]);
   const [opponent, setOpponent] = useState(null);
   const [themeId, setThemeId] = useState(null);
   const [themeTab, setThemeTab] = useState("letra");
@@ -72,6 +103,7 @@ export default function App() {
     if (session && session.user) {
       api.getProfile(session.user.id).then(setProfile);
       refreshMatches();
+      refreshRanking();
     } else {
       setProfile(null);
     }
@@ -80,6 +112,10 @@ export default function App() {
   function refreshMatches() {
     if (!session || !session.user) return;
     api.listMyMatches(session.user.id).then(setMatches).catch(function () {});
+  }
+
+  function refreshRanking() {
+    api.listProfilesByWins().then(setRankingProfiles).catch(function () {});
   }
 
   // --- Roleta ---
@@ -196,6 +232,8 @@ export default function App() {
         const finished = await api.submitOpponentLineup(activeMatch.id, formation, lineup);
         setActiveMatch(finished);
         refreshMatches();
+        refreshRanking();
+        api.getProfile(session.user.id).then(setProfile);
         setScreen("matchView");
       }
     } catch (e) {
@@ -296,6 +334,8 @@ export default function App() {
             <button onClick={handleLogout} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "#666", padding: "6px 12px", cursor: "pointer", fontSize: 12 }}>Sair</button>
           </div>
 
+          <Banner />
+
           <button style={btnPrimary} onClick={startNewMatch}>+ Nova Partida</button>
 
           {pendingForMe.length > 0 ? (
@@ -324,6 +364,8 @@ export default function App() {
               Nenhuma partida ainda.<br />Clique em "Nova Partida" para desafiar um amigo!
             </div>
           ) : null}
+
+          <Ranking me={session.user.id} profile={profile} allProfiles={rankingProfiles} />
         </div>
       </div>
     );
@@ -492,6 +534,70 @@ export default function App() {
   }
 
   return null;
+}
+
+function Ranking(props) {
+  const me = props.me;
+  const profile = props.profile;
+  const allProfiles = props.allProfiles;
+
+  if (!profile) return null;
+
+  const wins = profile.wins || 0;
+  const losses = profile.losses || 0;
+  const total = wins + losses;
+  const percentage = total > 0 ? Math.round((wins / total) * 100) : 0;
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      <div style={{ color: "#FFD700", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12 }}>Ranking</div>
+
+      <div style={{ background: "linear-gradient(135deg,rgba(255,215,0,0.1),rgba(255,140,0,0.05))", border: "1px solid rgba(255,215,0,0.2)", borderRadius: 14, padding: 16, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+          <CrestSVG crest={profile.crest_id} size={44} teamName={profile.team_name} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>{profile.team_name}</div>
+            <div style={{ color: "#888", fontSize: 12, marginTop: 2 }}>Seu time</div>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+          <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: 10, textAlign: "center" }}>
+            <div style={{ color: "#FFD700", fontSize: 18, fontWeight: 900 }}>{wins}</div>
+            <div style={{ color: "#888", fontSize: 11, marginTop: 4 }}>Vitorias</div>
+          </div>
+          <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: 10, textAlign: "center" }}>
+            <div style={{ color: "#FFD700", fontSize: 18, fontWeight: 900 }}>{losses}</div>
+            <div style={{ color: "#888", fontSize: 11, marginTop: 4 }}>Derrotas</div>
+          </div>
+          <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: 10, textAlign: "center" }}>
+            <div style={{ color: "#FFD700", fontSize: 18, fontWeight: 900 }}>{percentage}%</div>
+            <div style={{ color: "#888", fontSize: 11, marginTop: 4 }}>Aproveita.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, overflow: "hidden" }}>
+        {allProfiles.map(function (p, idx) {
+          const isMe = p.id === me;
+          const pWins = p.wins || 0;
+          const pLosses = p.losses || 0;
+          return (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderBottom: idx < allProfiles.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", background: isMe ? "rgba(255,215,0,0.08)" : "transparent" }}>
+              <div style={{ width: 28, textAlign: "center", fontWeight: 700, color: isMe ? "#FFD700" : "#888", fontSize: 12 }}>{idx + 1}</div>
+              <CrestSVG crest={p.crest_id} size={32} teamName={p.team_name} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, color: isMe ? "#FFD700" : "white", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.team_name}</div>
+              </div>
+              <div style={{ display: "flex", gap: 8, textAlign: "right", fontSize: 12, color: "#888" }}>
+                <div style={{ color: "#51cf66", fontWeight: 600 }}>{pWins}V</div>
+                <div style={{ color: "#ff6b6b", fontWeight: 600 }}>{pLosses}D</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ============ COMPONENTES AUXILIARES ============
