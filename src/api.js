@@ -49,6 +49,13 @@ export async function listProfiles(excludeId) {
   return (data || []).filter(function (p) { return p.id !== excludeId; });
 }
 
+// Lista todos os perfis ordenados por wins (para ranking)
+export async function listProfilesByWins() {
+  const { data, error } = await supabase.from("profiles").select("*").order("wins", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
 // ============================================================
 // PARTIDAS
 // ============================================================
@@ -100,6 +107,25 @@ export async function submitOpponentLineup(matchId, formation, players) {
     finished_at: new Date().toISOString(),
   }).eq("id", matchId).select().single();
   if (error) throw error;
+
+  // Atualiza wins/losses dos dois jogadores
+  if (winnerId !== null) {
+    // Tem vencedor - busca os perfis atuais e incrementa
+    const { data: winnerProfile } = await supabase.from("profiles").select("wins").eq("id", winnerId).single();
+    const { error: werrWinner } = await supabase.from("profiles")
+      .update({ wins: (winnerProfile?.wins || 0) + 1 })
+      .eq("id", winnerId);
+    if (werrWinner) throw werrWinner;
+
+    const loserId = winnerId === match.challenger_id ? match.opponent_id : match.challenger_id;
+    const { data: loserProfile } = await supabase.from("profiles").select("losses").eq("id", loserId).single();
+    const { error: werrLoser } = await supabase.from("profiles")
+      .update({ losses: (loserProfile?.losses || 0) + 1 })
+      .eq("id", loserId);
+    if (werrLoser) throw werrLoser;
+  }
+  // Se empate, nao altera nada
+
   return data;
 }
 
